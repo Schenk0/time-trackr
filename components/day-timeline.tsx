@@ -32,6 +32,7 @@ function buildRange(from: number, to: number) {
 
 type TimeSlotRowProps = {
   slot: number
+  clearSelection: () => void
   interval: 15 | 30
   clockFormat: 12 | 24
   tags: Tag[]
@@ -48,6 +49,7 @@ type TimeSlotRowProps = {
 
 const TimeSlotRow = memo(function TimeSlotRow({
   slot,
+  clearSelection,
   interval,
   clockFormat,
   tags,
@@ -64,6 +66,9 @@ const TimeSlotRow = memo(function TimeSlotRow({
       currentTagId={tag?.id ?? null}
       onSelect={(nextTagId) => onSelectTag(slot, nextTagId)}
       selectionCount={1}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) clearSelection()
+      }}
     >
       <TimeSlot
         slot={slot}
@@ -95,6 +100,7 @@ export function DayTimeline({
   const currentSlotRef = useRef<HTMLDivElement>(null)
   const scrollHostRef = useRef<HTMLDivElement>(null)
   const hasAutoScrolledRef = useRef(false)
+  const modifierClickRef = useRef(false)
   const [selectedSlots, setSelectedSlots] = useState<number[]>([])
   const [isBatchSelecting, setIsBatchSelecting] = useState(false)
   const [pickerAnchorSlot, setPickerAnchorSlot] = useState<number | null>(null)
@@ -158,6 +164,10 @@ export function DayTimeline({
   }, [selectedTagIds])
 
   const clearSelection = useCallback(() => {
+    if (modifierClickRef.current) {
+      modifierClickRef.current = false
+      return
+    }
     setSelectedSlots((prev) => (prev.length === 0 ? prev : []))
     setIsBatchSelecting((prev) => (prev ? false : prev))
     setPickerAnchorSlot((prev) => (prev === null ? prev : null))
@@ -168,6 +178,7 @@ export function DayTimeline({
       slot: number,
       modifiers: { ctrlOrMeta: boolean; shift: boolean }
     ) => {
+      modifierClickRef.current = true
       if (modifiers.shift) {
         setSelectedSlots((prev) => {
           if (prev.length === 0) {
@@ -185,7 +196,16 @@ export function DayTimeline({
 
       if (modifiers.ctrlOrMeta) {
         setSelectedSlots((prev) => {
-          if (prev.includes(slot)) return prev
+          if (prev.includes(slot)) {
+            const next = prev.filter((s) => s !== slot)
+            if (next.length === 0) {
+              setIsBatchSelecting(false)
+              setPickerAnchorSlot(null)
+              return next
+            }
+            setPickerAnchorSlot(Math.max(...next))
+            return next
+          }
           const next = [...prev, slot].sort((a, b) => a - b)
           setPickerAnchorSlot(Math.max(...next))
           return next
@@ -198,7 +218,9 @@ export function DayTimeline({
 
   const handlePlainSlotClick = useCallback((slot: number) => {
     setSelectedSlots([slot])
-  }, [setSelectedSlots])
+    setIsBatchSelecting(false)
+    setPickerAnchorSlot(null)
+  }, [])
 
   const scrollToCurrent = useCallback(() => {
     if (!currentSlotRef.current) return
@@ -224,22 +246,14 @@ export function DayTimeline({
     [clearSelection, onSetEntries, selectedSlots]
   )
 
-  useEffect(() => {
-    if (!showBatchPicker) return
+  const handleBatchPickerOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) clearSelection()
+    },
+    [clearSelection]
+  )
 
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null
-      if (!target) return
-      if (event.ctrlKey || event.metaKey || event.shiftKey) return
-      if (target.closest('[data-slot="popover-content"]')) return
-      clearSelection()
-    }
-
-    window.addEventListener("pointerdown", handlePointerDown, true)
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown, true)
-    }
-  }, [showBatchPicker, clearSelection])
+  const anchorSlotRef = useRef<HTMLDivElement>(null)
 
   return (
     <div ref={scrollHostRef} className="relative flex-1 min-h-0">
@@ -268,11 +282,15 @@ export function DayTimeline({
             return (
               <div
                 key={slot}
-                ref={isCurrent ? currentSlotRef : undefined}
+                ref={(el) => {
+                  if (isCurrent) (currentSlotRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+                  if (pickerAnchorSlot === slot) (anchorSlotRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+                }}
                 data-slot={slot}
               >
                 <TimeSlotRow
                   slot={slot}
+                  clearSelection={clearSelection}
                   interval={interval}
                   clockFormat={clockFormat}
                   tags={tags}
@@ -283,25 +301,23 @@ export function DayTimeline({
                   onModifierClick={handleModifierClick}
                   onPlainClick={handlePlainSlotClick}
                 />
-
-                {showBatchPicker && pickerAnchorSlot === slot && (
-                  <div className="">
-                    <TagPicker
-                      tags={tags}
-                      currentTagId={multiSelectionTagId}
-                      onSelect={handleMultiSelectTag}
-                      selectionCount={selectedSlots.length}
-                      open
-                    >
-                      <div className="h-0 w-full" aria-hidden />
-                    </TagPicker>
-                  </div>
-                )}
               </div>
             )
           })}
         </div>
       </ScrollArea>
+
+      {showBatchPicker && (
+        <TagPicker
+          tags={tags}
+          currentTagId={multiSelectionTagId}
+          onSelect={handleMultiSelectTag}
+          onOpenChange={handleBatchPickerOpenChange}
+          selectionCount={selectedSlots.length}
+          anchorRef={anchorSlotRef}
+          open
+        />
+      )}
     </div>
   )
 }

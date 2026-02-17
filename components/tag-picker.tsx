@@ -4,6 +4,7 @@ import { useState } from "react"
 import { X } from "lucide-react"
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
@@ -16,7 +17,8 @@ interface TagPickerProps {
   selectionCount?: number
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  children: React.ReactNode
+  anchorRef?: React.RefObject<HTMLElement | null>
+  children?: React.ReactNode
 }
 
 export function TagPicker({
@@ -26,6 +28,7 @@ export function TagPicker({
   selectionCount = 1,
   open,
   onOpenChange,
+  anchorRef,
   children,
 }: TagPickerProps) {
   const [internalOpen, setInternalOpen] = useState(false)
@@ -46,9 +49,13 @@ export function TagPicker({
 
   return (
     <Popover open={resolvedOpen} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      {anchorRef ? (
+        <PopoverAnchor virtualRef={anchorRef as React.RefObject<HTMLElement>} />
+      ) : (
+        <PopoverTrigger asChild>{children}</PopoverTrigger>
+      )}
       {resolvedOpen ? (
-        <PopoverContent className="w-48 p-2" align="center">
+        <PopoverContent className="w-48 p-2" align="center" collisionPadding={8}>
           <div className="flex flex-col gap-1">
             {selectionCount > 1 && (
               <p className="px-2.5 py-1 text-xs text-muted-foreground">

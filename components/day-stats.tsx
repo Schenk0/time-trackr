@@ -21,7 +21,7 @@ function formatDuration(minutes: number) {
 }
 
 const SIZE = 220
-const STROKE = 28
+const STROKE = 16
 const RADIUS = (SIZE - STROKE) / 2
 const CENTER = SIZE / 2
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS

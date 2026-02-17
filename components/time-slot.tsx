@@ -86,20 +86,31 @@ export const TimeSlot = memo(
 
         {/* Slot block */}
         <div
-          className={`flex-1 min-h-[32px] rounded-md border transition-all ${
-            tag
-              ? "border-transparent group-hover:border-border"
-              : "border-dashed border-border/50 group-hover:border-border group-hover:bg-accent/50"
-          } ${isCurrentSlot && !tag ? "bg-primary/5" : ""} ${isSelected && !tag ? "bg-accent/50" : ""}`}
-          style={
-            tag
-              ? {
-                  backgroundColor: tag.color + "18",
-                  borderLeft: `3px solid ${tag.color}`,
-                }
-              : undefined
+  // 1. Pass the dynamic color as a CSS variable
+  style={
+    tag
+      ? ({ "--tag-color": tag.color } as React.CSSProperties)
+      : undefined
+  }
+  className={`
+    flex-1 min-h-[32px] rounded-md border transition-all
+    ${
+      tag
+        ? `
+          border-transparent
+          border-l-[3px] border-l-(--tag-color)
+          ${
+            isSelected
+              ? "bg-[color-mix(in_srgb,var(--tag-color),transparent_80%)]"
+              : "bg-[color-mix(in_srgb,var(--tag-color),transparent_90%)] group-hover:bg-[color-mix(in_srgb,var(--tag-color),transparent_85%)]"
           }
-        >
+          `
+        : "border-dashed border-border/50 group-hover:border-border group-hover:bg-accent/50"
+    } 
+    ${isCurrentSlot && !tag ? "bg-primary/5" : ""} 
+    ${isSelected && !tag ? "bg-accent/50" : ""}
+  `}
+>
           {tag && (
             <span
               className="block px-2.5 py-1.5 text-xs font-medium truncate select-none"
